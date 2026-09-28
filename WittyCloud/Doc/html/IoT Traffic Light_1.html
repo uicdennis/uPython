@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Traffic Light Development</title>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .section {
+            margin-bottom: 40px;
+        }
+        .code-block {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        pre {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div class="section">
+            <h2>IoT Traffic Light開發(一)</h2>
+            <h3>前言</h3>
+            <p>
+                對於行控中心架構下的交通號誌模擬，我們選用Witty Cloud硬體來模擬，它是基於ESP8266開發的物聯網裝置，主要是ESP8266已內建WiFi模組，以及硬體上也已裝設了三色LED，正好拿來模擬交通號誌而不必額外架設硬體。
+            </p>
+            <p>
+                開發上我們預計分三階段進行，第一是Witty Could的WiFi及LED設定，第二是MQTT Heartbeat及Witty Cloud Timer設定，最後則是MQTT的IoT裝置註冊及燈號狀態更新與行控中心搭配。
+            </p>
+        </div>
+
+        <div class="section">
+            <h3>認識機智雲(Witty Cloud)</h3>
+            <img src="D:/Dennis/uPython/WittyCloud/Schematics/機智雲線路.png" alt="機智雲線路圖">
+            <p>
+                機智雲有內建三色(RGB)LED燈，分別是紅色(GPIO15)、綠色(GPIO12)及藍色(GPIO13)。想要控制機制雲(其實是ESP8266)的GPIO，必須導入<code>Pin</code>模組，方法如下:
+            </p>
+            <div class="code-block">
+                <pre><code>from machine import Pin
+
+r_led = Pin(15, Pin.OUT)
+g_led = Pin(12, Pin.OUT)
+b_led = Pin(13, Pin.OUT)
+
+r_led.on()</code></pre>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>機智雲的WiFi設定</h3>
+            <p>
+                要使用ESP8266的WiFi，必須套用<code>network</code>模組，又ESP8266可以規劃成WiFi的Station及AP，因為我們是一個裝置，因此只須規劃成WiFi Station。
+            </p>
+            <div class="code-block">
+                <pre><code>import network
+import json
+
+def wifi_connect(led):
+  wifi = network.WLAN(network.STA_IF)
+  wifi.active(True)
+  with open('config.json', 'rt') as f:
+      cfg = json.load(f)
+      wifi.connect(cfg['ssid'], cfg['password'])
+  while wifi.isconnected() == False:
+      pass
+
+  led.value(0)
+  print(wifi.ifconfig())
+  return wifi</code></pre>
+            </div>
+        </div>
+
+        <div class="section">
+            <h3>模擬交通號誌</h3>
+            <p>
+                交通號誌主要是紅 → 綠 → 黃 → 紅的循環顯示，因此只需要使用while迴圈來控制燈號即可。但是機智雲並沒有黃燈，因此要變換黃燈時，必須同時點亮紅燈與綠燈。程式碼設計就會如同下方程式碼。
+            </p>
+            <div class="code-block">
+                <pre><code>from machine import Pin 
+import utime 
+
+OFFLINE = 0
+RED = 1
+YELLOW = 2
+GREEN = 3
+
+led_cfg = {
+  "red": 10,
+  "yellow": 5,
+  "green": 15,
+  "blink": 0
+}
+
+led_status = OFFLINE
+r_led = Pin(15, Pin.OUT)
+g_led = Pin(12, Pin.OUT)
+b_led = Pin(13, Pin.OUT)
+
+leds = [r_led, g_led, b_led]
+
+def led_off():
+  for led in leds:
+      led.off()
+
+def led_change(led: int):
+  print(f"led_change()  ==> led = {led}")
+  led_off()
+  if led == RED:
+      r_led.on()
+  elif led == YELLOW:
+      r_led.value(1)
+      g_led.value(1)
+  elif led == GREEN:
+      g_led.value(1)
+  led_status = led
+
+def traffic_test(leds, cfg):
+  r = cfg['red']
+  y = cfg['yellow']
+  g = cfg['green']
+
+  while True:
+      led_change(RED)
+      utime.sleep(r)
+      led_change(GREEN)
+      utime.sleep(g)
+      led_change(YELLOW)
+      utime.sleep(y)
+
+def start_light():
+  led_off()
+  led_status = RED
+  traffic_test(leds, led_cfg)</code></pre>
+            </div>
+			<h3>兩個容易踩到的細節</h3>
+            <p>第一，<code>led_change()</code> 內若要更新模組層級的 <code>led_status</code>，需加上 <code>global led_status</code>，否則只會產生區域變數。第二，<code>start_light()</code> 原本先設 <code>led_status = RED</code> 卻沒實際點燈，建議直接呼叫 <code>led_change(RED)</code> 讓狀態與硬體一致。
+        </div>
+
+        <div class="section">
+            <h3>結論</h3>
+            <p>
+                這是一個簡易的交通號誌模擬，學習到機智雲(ESP8266)的WiFi，GPIO輸出控制與Python的迴圈設計與JSON檔案讀取，下一步我們就要開始學習物聯網的MQTT協定。
+            </p>
+        </div>
+    </div>
+</body>
+<script>
+    new Vue({
+        el: '#app',
+        data: {
+            // You can add data properties here if needed
+        }
+    });
+</script>
+</html>
