@@ -1,5 +1,5 @@
-from machine import Pin 
-import utime 
+from machine import Pin, Timer
+import utime
 
 OFFLINE = 0
 RED = 1
@@ -89,6 +89,9 @@ def led_change(led: int):
         g_led.value(1)
     led_status = led
 
+def tim_cb(x):
+    pass
+
 # Main traffic control function
 # leds = [r_led, g_led, b_led]
 def traffic_test(leds, cfg):
@@ -108,9 +111,12 @@ def traffic_test(leds, cfg):
         utime.sleep(y)
         utime.sleep(0.01)
 
-def start_light():
+def start_light(did: str):
     led_off()
+    print(f" ---> Enter start_light() - id = {did}")
 
+    tim = Timer(-1)
+    tim.init(period=500, mode=Timer.PERIODIC, callback=tim_cb)
     led_status = RED
     traffic_test(leds, led_cfg)
     
