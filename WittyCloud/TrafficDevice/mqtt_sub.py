@@ -56,6 +56,7 @@ def heartbeat(device_id: str, msg: dict):
     topic = MQTT_PREFIX + msg["id"] + "/heartbeat"
     print(f"   Publish topic = {topic}")
     client.publish(topic, json.dumps(msg))
+    msg["sn"] = msg["sn"] % 100 + 1
 
 def start_mqtt():
     global client

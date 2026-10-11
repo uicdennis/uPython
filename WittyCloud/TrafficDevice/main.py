@@ -2,20 +2,16 @@ import os
 from machine import Pin
 #from traffic_control import led_test, led_test1, led_test2, led_test3
 from wifi import wifi_connect
-from traffic_control import start_light
-from mqtt_sub import start_mqtt, heartbeat
+from traffic_control import start_light, stop_heartbeat
+from mqtt_sub import start_mqtt
 
 index = 0
 
-hb_cfg = {"id": "abc", "sn": 1}
-
 def btn_irq(btn):
-    print(f"sn = {hb_cfg["sn"]}")
-    heartbeat("abc", hb_cfg)
-    hb_cfg["sn"] = hb_cfg["sn"] + 1
+    stop_heartbeat()
 
 if __name__ == "__main__":
-    print("Witty Cloud Demo v.0.2 - Traffic Light show.")
+    print("Witty Cloud Demo v.0.3 - Traffic Light show.")
 
     led_wifi = Pin(2, Pin.OUT)
     led_wifi.value(1)

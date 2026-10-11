@@ -1,5 +1,6 @@
 from machine import Pin, Timer
 import utime
+from mqtt_sub import heartbeat
 
 OFFLINE = 0
 RED = 1
@@ -13,12 +14,15 @@ led_cfg = {
     "blink": 0
 }
 
+hb_cfg = {"id": "abc", "sn": 1}
+
 led_status = OFFLINE
 r_led = Pin(15, Pin.OUT)
 g_led = Pin(12, Pin.OUT)
 b_led = Pin(13, Pin.OUT)
 
 leds = [r_led, g_led, b_led]
+tim = 0
 
 def led_test():
     #global r_led, g_led, b_led
@@ -90,7 +94,12 @@ def led_change(led: int):
     led_status = led
 
 def tim_cb(x):
-    pass
+    heartbeat(hb_cfg["id"], hb_cfg)
+
+def stop_heartbeat():
+    global tim
+    tim.deinit()
+    print("  ---> Timer stopped !!!")
 
 # Main traffic control function
 # leds = [r_led, g_led, b_led]
@@ -112,11 +121,15 @@ def traffic_test(leds, cfg):
         utime.sleep(0.01)
 
 def start_light(did: str):
+    global tim
     led_off()
     print(f" ---> Enter start_light() - id = {did}")
+    # Update Device ID
+    hb_cfg["id"] = did
 
     tim = Timer(-1)
-    tim.init(period=500, mode=Timer.PERIODIC, callback=tim_cb)
+    tim.init(period=30000, mode=Timer.PERIODIC, callback=tim_cb)
+    heartbeat(hb_cfg["id"], hb_cfg)
     led_status = RED
     traffic_test(leds, led_cfg)
     
