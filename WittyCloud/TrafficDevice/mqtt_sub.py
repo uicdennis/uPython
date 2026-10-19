@@ -1,7 +1,6 @@
 import time
-import machine
 from umqtt.simple import MQTTClient
-import ubinascii
+import machine
 import json
 
 # mqtt_server = '192.168.0.20'
@@ -9,14 +8,12 @@ MQTT_SERVER = "test.mosquitto.org"
 MQTT_PORT = 1883
 MQTT_ALIVE = 60
 MQTT_PREFIX = "promath168/traffic/"
-TRAFFIC_DEVICE_REGISTER_TOPIC = "promath168/traffic/cmd/registered"
+TRAFFIC_DEVICE_REGISTER_TOPIC = "promath168/traffic/registered"
 TRAFFIC_DEVICE_HEARTBEAT_TOPIC = "promath168/traffic/+/heartbeat"
 TRAFFIC_LIGHT_STATUS_TOPIC = "promath168/traffic/+/status"
 TRAFFIC_LIGHT_CMD_TOPIC = "promath168/traffic/+/cmd"
 mqtt_server = MQTT_SERVER
 topic_sub = TRAFFIC_LIGHT_CMD_TOPIC
-
-client = None
 
 def sub_cb(topic, msg):
     print((topic, msg))
@@ -24,7 +21,9 @@ def sub_cb(topic, msg):
         print('ESP received hello message')
 
 def connect_and_subscribe(client_id: str) -> MQTTClient:
-    client = MQTTClient(client_id, mqtt_server)
+    global mqtt_server
+
+    client = MQTTClient(client_id, mqtt_server, keepalive=MQTT_ALIVE)
     client.set_callback(sub_cb)
     client.connect()
     client.subscribe(topic_sub)
@@ -51,21 +50,27 @@ def publish_test(msg: dict):
         except OSError as e:
             restart_and_reconnect()
 
-def heartbeat(device_id: str, msg: dict):
+def heartbeat(client: MQTTClient, device_id: str, msg: dict):
     #topic = MQTT_PREFIX + device_id + "/heartbeat"
     topic = MQTT_PREFIX + msg["id"] + "/heartbeat"
     print(f"   Publish topic = {topic}")
     client.publish(topic, json.dumps(msg))
     msg["sn"] = msg["sn"] % 100 + 1
 
-def start_mqtt():
-    global client
+def register_device(client: MQTTClient, msg: dict):
+    topic = TRAFFIC_DEVICE_REGISTER_TOPIC + f"/{msg['id']}"
+    client.publish(topic, json.dumps(msg))
 
-    client_id = ubinascii.hexlify(machine.unique_id()).decode("utf-8")
+def status_changed(client: MQTTClient, msg: dict):
+    #print(f"   ID = {msg["id"]}")
+    topic = MQTT_PREFIX + f"{msg['id']}/status"
+    print(f"   Publish topic = {topic} - {msg['color']}")
+    client.publish(topic, json.dumps(msg))
 
+def start_mqtt(did: str) -> MQTTClient:
     try:
-        client = connect_and_subscribe(client_id)
+        client = connect_and_subscribe(did)
     except OSError as e:
         restart_and_reconnect()
-    
-    return client_id
+
+    return client
